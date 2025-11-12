@@ -88,4 +88,5 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received, shutting down gracefully...');
-  process.
+  process.exit(0);
+});
