@@ -1,6 +1,6 @@
 /**
- * Firebase SSE Proxy for Airtel M2M
- * Receives HTTP requests and forwards as HTTPS to Firebase
+ * Firebase SSE Proxy - FIXED FOR SSE STREAMING
+ * Properly handles Server-Sent Events without buffering
  */
 
 const express = require('express');
@@ -16,16 +16,18 @@ console.log('🚀 Firebase SSE Proxy starting...');
 console.log('📡 Target: ' + FIREBASE_HOST);
 console.log('🔗 Port: ' + PORT);
 
-// Proxy configuration
+// **FIXED SSE PROXY CONFIGURATION**
 const proxyOptions = {
   target: FIREBASE_HOST,
   changeOrigin: true,
-  ws: false,  // Disable websockets (we're doing SSE)
+  ws: false,
   
-  // Critical for SSE streaming
+  // **CRITICAL: Disable buffering for SSE**
+  buffer: null,
+  selfHandleResponse: false,
+  
   onProxyReq: (proxyReq, req, res) => {
-    // Forward original headers
-    proxyReq.setHeader('Host', 'relay-test1001-default-rtdb.asia-southeast1.firebasedatabase.app');
+    // Set SSE headers
     proxyReq.setHeader('Accept', 'text/event-stream');
     proxyReq.setHeader('Cache-Control', 'no-cache');
     proxyReq.setHeader('Connection', 'keep-alive');
@@ -33,34 +35,38 @@ const proxyOptions = {
     console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url}`);
   },
   
-  // Don't buffer responses (critical for SSE)
   onProxyRes: (proxyRes, req, res) => {
-    // Remove content-length header for SSE streaming
+    // **CRITICAL: Remove buffering headers**
     delete proxyRes.headers['content-length'];
+    delete proxyRes.headers['transfer-encoding'];
     
-    // Ensure streaming
-    proxyRes.headers['cache-control'] = 'no-cache';
+    // Force SSE headers
+    proxyRes.headers['content-type'] = 'text/event-stream; charset=utf-8';
+    proxyRes.headers['cache-control'] = 'no-cache, no-transform';
     proxyRes.headers['connection'] = 'keep-alive';
+    proxyRes.headers['x-accel-buffering'] = 'no';
     
-    console.log(`📤 [${new Date().toISOString()}] Response: ${proxyRes.statusCode}`);
+    console.log(`📤 [${new Date().toISOString()}] Status: ${proxyRes.statusCode}, Type: ${proxyRes.headers['content-type']}`);
   },
   
-  // Error handling
   onError: (err, req, res) => {
     console.error('❌ Proxy error:', err.message);
-    res.status(500).send('Proxy error: ' + err.message);
+    if (!res.headersSent) {
+      res.status(500).send('Proxy error: ' + err.message);
+    }
   },
   
-  // Timeout settings for long-lived SSE connections
-  proxyTimeout: 3600000,  // 1 hour
-  timeout: 3600000
+  // No timeout for long-lived SSE connections
+  proxyTimeout: 0,
+  timeout: 0
 };
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Firebase SSE Proxy',
+    service: 'Firebase SSE Proxy (Fixed)',
+    version: '2.0',
     timestamp: new Date().toISOString(),
     target: FIREBASE_HOST
   });
@@ -74,6 +80,7 @@ app.listen(PORT, () => {
   console.log('✅ Proxy server running!');
   console.log(`🌐 Access via: http://localhost:${PORT}`);
   console.log('📊 Health check: /health');
+  console.log('🔧 SSE streaming: ENABLED (buffering disabled)');
   console.log('');
   console.log('Ready to proxy Firebase SSE requests! 🎉');
 });
@@ -81,5 +88,4 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
+  process.
