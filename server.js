@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Firebase host
-const FIREBASE_HOST = 'https://relay-test1001-default-rtdb.asia-southeast1.firebasedatabase.app';
+const FIREBASE_HOST = '';
 
 console.log('🚀 Firebase SSE Proxy starting...');
 console.log('📡 Target: ' + FIREBASE_HOST);
